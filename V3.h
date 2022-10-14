@@ -26,8 +26,9 @@ public:
 	V3 RotateThisPoint(V3 aO, V3 aD, float theta); //Rotates a point around a y axis
 	V3 RotateThisVector(V3 aD, float theta); //Rotation a vector around another vector
 	V3 Light(V3 matColor, float ka, V3 ld, V3 norm, float kp); //Calculates the light intensity vector for a normal
+	V3 Light(V3 matColor, float ka, V3 ld, V3 norm);
+	V3 Light(V3 matColor, float ka, float kp, V3 ld, V3 ed, V3 norm);
 
-	V3 Light(V3 matColor, float ka, V3 ld); //Calculates light intensity by checking the distance of the point
 
 };
 

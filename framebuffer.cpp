@@ -2,6 +2,7 @@
 #include "framebuffer.h"
 #include "math.h"
 #include <iostream>
+#include <fstream>
 #include <limits>
 #include "scene.h"
 #include "ppc.h"
@@ -148,7 +149,10 @@ void FrameBuffer::DrawDisk(V3 center, float r, unsigned int col) {
 			V3 distVector = pixCenter - center;
 			if (r*r < distVector * distVector)
 				continue;
-			SetGuarded(u, v, col);
+			if (u < 0 || u > w - 1 || v < 0 || v > h - 1)
+				continue;
+			if (IsCloserThenSet(center[2], u, v))
+				SetGuarded(u, v, col);
 		}
 	}
 
@@ -293,7 +297,6 @@ int FrameBuffer::IsCloserThenSet(float currz, int u, int v) {
 }
 
 
-
 void FrameBuffer::DrawTriangle(float x[3], float y[3], unsigned int col) {
 	// Draws triangle first by checking the sidedness of the point equations
 	// makes lines with two vertices and then checks if the 3 vertices is on the positive side of line or negative
@@ -411,29 +414,9 @@ float FrameBuffer::biggest(int x, int y, int z)
 }
 
 void FrameBuffer::Draw3DTriangle(PPC* ppc, V3 x, V3 y, V3 z, V3 col0, V3 col1, V3 col2) {
-	/*M33 mat;
-	mat.SetColumn(0, x);
-	mat.SetColumn(1, y);
-	mat.SetColumn(2, V3(1, 1, 1));
-
-	M33 matInv = mat.Inverted();
-	V3 coeff = matInv * r; */
-	//V3 screenX; V3 screenY; 
-	/*V3 v0 = V3(x[0], y[0], z[0]);
-	V3 v1 = V3(x[1], y[1], z[1]);
-	V3 v2 = V3(x[2], y[2], z[2]);
-	V3 unitTmp = v0.UnitVector();
-	float ratio = ppc->c[2] / unitTmp[2];
-	v0 = unitTmp * ratio;
-	unitTmp = v1.UnitVector();
-	ratio = ppc->c[2] / unitTmp[2];
-	v1 = unitTmp * ratio;
-	unitTmp = v2.UnitVector();
-	ratio = ppc->c[2] / unitTmp[2];
-	v2 = unitTmp * ratio;
-	screenX = V3(v0[0], v1[0], v2[0]);
-	screenY = V3(v0[1], v1[1], v2[1]);*/
-	//DrawTriangle(x.xyz, y.xyz, col);
+	M33 m33; m33.SetColumn(0, x); m33.SetColumn(1, y); m33.SetColumn(2, V3(1, 1, 1));
+	V3 r = V3(col0[0], col1[0], col2[0]); V3 g = V3(col0[1], col1[1], col2[1]); V3 bcolor = V3(col0[2], col1[2], col2[2]);
+	V3 rabc = m33.Inverted() * r; V3 gabc = m33.Inverted() * g; V3 babc = m33.Inverted() * bcolor;
 
 	float a[3]{};
 	float b[3]{};
@@ -465,8 +448,8 @@ void FrameBuffer::Draw3DTriangle(PPC* ppc, V3 x, V3 y, V3 z, V3 col0, V3 col1, V
 
 	float bbox[2][2]{}; // for each x and y, store the min and max values
 	ComputeBBox(x.xyz, y.xyz, bbox);
-	int left = (int)(bbox[0][0] + .5), right = (int)(bbox[0][1] - .5);
-	int top = (int)(bbox[1][0] + .5), bottom = (int)(bbox[1][1] - .5);
+	int left = (int)(bbox[0][0] - .5), right = (int)(bbox[0][1] + .5);
+	int top = (int)(bbox[1][0] - .5), bottom = (int)(bbox[1][1] + .5);
 
 	int currPixX, currPixY; // current pixel considered
 
@@ -498,12 +481,15 @@ void FrameBuffer::Draw3DTriangle(PPC* ppc, V3 x, V3 y, V3 z, V3 col0, V3 col1, V
 						//Basically this calculates the same as a triangle but checks light by making sure that the 
 						// closer the pixel is to a vertice, it will have more influence on the color of the pixel in 
 						// a weighted average calculation
-						float col1Power = -(float)currPixX + -x[0] + -(float)currPixY + -y[0];
-						float col2Power = -(float)currPixX + -x[1] + -(float)currPixY + -y[1];
-						float col3Power = -(float)currPixX + -x[2] + -(float)currPixY + -y[2];
-						float totalPower = col1Power + col2Power + col3Power;
-						currCol = col0 * totalPower / col1Power + col1 * totalPower / col2Power + 
-							col2 * totalPower / col3Power;
+						float currZB = zb[(h - 1 - currPixY) * w + currPixX];
+
+						SetZB(ppc, currPixX, currPixY, x, y, z);
+						if (currZB == zb[(h - 1 - currPixY) * w + currPixX] && pix[(h - 1 - currPixY) * w + currPixX] != 0xFFFFFF) {
+							continue;
+						}
+						currCol[0] = rabc[0] * currPixX + rabc[1] * currPixY + rabc[2];
+						currCol[1] = gabc[0] * currPixX + gabc[1] * currPixY + gabc[2];
+						currCol[2] = babc[0] * currPixX + babc[1] * currPixY + babc[2];
 						SetGuarded(currPixX, currPixY, currCol.GetColor());
 					}
 				}
@@ -512,23 +498,123 @@ void FrameBuffer::Draw3DTriangle(PPC* ppc, V3 x, V3 y, V3 z, V3 col0, V3 col1, V
 
 	}
 
+
 }
 
 void FrameBuffer::SetZB(PPC* ppc, int pixX, int pixY, V3 px, V3 py, V3 pz) {
-	float infinite = numeric_limits<float>::infinity();
-	if (zb[pixX * pixY] == 0) {
-		zb[pixX * pixY] == infinite;
-	}
-	V3 v;
 	M33 uv1;
 	uv1.SetColumn(0, px);
 	uv1.SetColumn(1, py);
 	uv1.SetColumn(2, V3(1, 1, 1));
-	V3 abc = uv1.Inverted() * V3(pz.xyz[0], pz.xyz[1], pz.xyz[2]);
-	float z = float(pixX) * abc[0] + float(pixY) * abc[1] + abc[2];
+	V3 abc = uv1.Inverted() * pz;
 
-	ppc->Unproject(V3(float(pixX), float(pixY), z), v);
-	if (zb[pixX * pixY] > v[2]) {
-		zb[pixX * pixY] = v[2];
+	float z = (float(pixX) * abc[0] + float(pixY) * abc[1] + abc[2]);
+	if (fabs(z) > fabs(zb[(h - 1 - pixY) * w + pixX]) ) {
+		
+		zb[(h - 1 - pixY) * w + pixX] = z;
+		//cout << z << endl;
 	}
+}
+
+void FrameBuffer::DrawPhoungTriangle(PPC* ppc, V3 x, V3 y, V3 z, V3 col0, V3 col1, V3 col2, 
+	V3 normal0, V3 normal1, V3 normal2, float ka, float kp, PPC* light) {
+	
+	M33 m33; m33.SetColumn(0, x); m33.SetColumn(1, y); m33.SetColumn(2, V3(1, 1, 1));
+	V3 r = V3(col0[0], col1[0], col2[0]); V3 g = V3(col0[1], col1[1], col2[1]); V3 bcolor = V3(col0[2], col1[2], col2[2]);
+	V3 rabc = m33.Inverted() * r; V3 gabc = m33.Inverted() * g; V3 babc = m33.Inverted() * bcolor;
+
+	V3 normx = V3(normal0[0], normal1[0], normal2[0]);
+	V3 normy = V3(normal0[1], normal1[1], normal2[1]);
+	V3 normz = V3(normal0[2], normal1[2], normal2[2]);
+
+	V3 normxabc = m33.Inverted() * normx; V3 normyabc = m33.Inverted() * normy; V3 normzabc = m33.Inverted() * normz;
+
+	float a[3]{};
+	float b[3]{};
+	float c[3]{};
+	a[0] = y[1] - y[0];
+	b[0] = -x[1] + x[0];
+	c[0] = -x[0] * y[1] + y[0] * x[1];
+	float sidedness;
+	sidedness = a[0] * x[2] + b[0] * y[2] + c[0];
+	if (sidedness < 0) {
+		a[0] = -a[0]; b[0] = -b[0]; c[0] = -c[0];
+	}
+
+
+	a[1] = y[2] - y[1];
+	b[1] = -x[2] + x[1];
+	c[1] = -x[1] * y[2] + y[1] * x[2];
+	sidedness = a[1] * x[0] + b[1] * y[0] + c[1];
+	if (sidedness < 0) {
+		a[1] = -a[1]; b[1] = -b[1]; c[1] = -c[1];
+	}
+	a[2] = y[0] - y[2];
+	b[2] = -x[0] + x[2];
+	c[2] = -x[2] * y[0] + y[2] * x[0];
+	sidedness = a[2] * x[1] + b[2] * y[1] + c[2];
+	if (sidedness < 0) {
+		a[2] = -a[2]; b[2] = -b[2]; c[2] = -c[2];
+	}
+
+	float bbox[2][2]{}; // for each x and y, store the min and max values
+	ComputeBBox(x.xyz, y.xyz, bbox);
+	int left = (int)(bbox[0][0] - .5), right = (int)(bbox[0][1] + .5);
+	int top = (int)(bbox[1][0] - .5), bottom = (int)(bbox[1][1] + .5);
+
+	int currPixX, currPixY; // current pixel considered
+
+	float currEELS[3]{}, currEE[3]{}; // edge expression values for line starts and within line
+
+	V3 currCol = col0;
+	for (currPixY = top; currPixY <= bottom; currPixY++) {
+		currEELS[0] = a[0] * (left + .5) + b[0] * (top + .5) + c[0];
+		currEELS[0] += b[0] * (currPixY - top);
+		currEELS[1] = a[1] * (left + .5) + b[1] * (top + .5) + c[1];
+		currEELS[1] += b[1] * (currPixY - top);
+		currEELS[2] = a[2] * (left + .5) + b[2] * (top + .5) + c[2];
+		currEELS[2] += b[2] * (currPixY - top);
+
+		for (currPixX = left; currPixX <= right; currPixX++) {
+
+			currEE[0] = currEELS[0];
+			currEE[0] += a[0] * (currPixX - left);
+
+			currEE[1] = currEELS[1];
+			currEE[1] += a[1] * (currPixX - left);
+
+
+			currEE[2] = currEELS[2];
+			currEE[2] += a[2] * (currPixX - left);
+			if (currEE[1] > 0) {
+				if (currEE[2] > 0) {
+					if (currEE[0] > 0) {
+						//Basically this calculates the same as a triangle but checks light by making sure that the 
+						// closer the pixel is to a vertice, it will have more influence on the color of the pixel in 
+						// a weighted average calculation
+						float currZB = zb[(h - 1 - currPixY) * w + currPixX];
+
+						SetZB(ppc, currPixX, currPixY, x, y, z);
+						if (currZB == zb[(h - 1 - currPixY) * w + currPixX] && pix[(h - 1 - currPixY) * w + currPixX] != 0xFFFFFF) {
+							continue;
+						}
+						currCol[0] = rabc[0] * currPixX + rabc[1] * currPixY + rabc[2];
+						currCol[1] = gabc[0] * currPixX + gabc[1] * currPixY + gabc[2];
+						currCol[2] = babc[0] * currPixX + babc[1] * currPixY + babc[2];
+						float currnormx = normxabc[0] * currPixX + normxabc[1] * currPixY + normxabc[2];
+						float currnormy = normyabc[0] * currPixX + normyabc[1] * currPixY + normyabc[2];
+						float currnormz = normzabc[0] * currPixX + normzabc[1] * currPixY + normzabc[2];
+						V3 currNorm = V3(currnormx, currnormy, currnormz);
+						V3 pCurr = V3(float(currPixX), float(currPixY), zb[(h - 1 - currPixY) * w + currPixX]);
+						V3 Curr;
+						ppc->Unproject(pCurr, Curr);
+						V3 lightedColor = currNorm.Light(currCol, ka, kp, (Curr - light->C), (Curr - ppc->C), currNorm);
+						SetGuarded(currPixX, currPixY, lightedColor.GetColor());
+					}
+				}
+			}
+		}
+
+	}
+
 }

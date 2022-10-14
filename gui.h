@@ -37,12 +37,24 @@ private:
 	static void cb_WhiteUp(Fl_Button*, void*);
 	inline void cb_WhiteDown_i(Fl_Button*, void*);
 	static void cb_WhiteDown(Fl_Button*, void*);
+	inline void cb_Light_Left_i(Fl_Repeat_Button*, void*);
+	static void cb_Light_Left(Fl_Repeat_Button*, void*);
+	inline void cb_Light_Up_i(Fl_Repeat_Button*, void*);
+	static void cb_Light_Up(Fl_Repeat_Button*, void*);
+	inline void cb_Light_Down_i(Fl_Repeat_Button*, void*);
+	static void cb_Light_Down(Fl_Repeat_Button*, void*);
+	inline void cb_Light_Right_i(Fl_Repeat_Button*, void*);
+	static void cb_Light_Right(Fl_Repeat_Button*, void*);
 public:
 	void show();
 	void DBG_cb();
 	void SM2_cb();
 	void SM3_cb();
 	void NewButton_cb();
+	void Light_Left_cb();
+	void Light_Up_cb();
+	void Light_Down_cb();
+	void Light_Right_cb();
 	void Left_cb();
 	void Up_cb();
 	void Down_cb();

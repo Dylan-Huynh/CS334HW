@@ -3,6 +3,7 @@
 #include "V3.h"
 #include "M33.h"
 #include "tm.h"
+#include <limits>
 
 Scene *scene;
 
@@ -11,8 +12,8 @@ using namespace std;
 #include <iostream>
 #include <fstream>
 
-float ka = .03f;
-float kp = 1.0f;
+float ka = 0.50f;
+float kp = 4.0f;
 
 Scene::Scene() {
 
@@ -42,7 +43,11 @@ Scene::Scene() {
 	float hfov = 60.0f;
 	ppc = new PPC(hfov, w, h);
 	ppc3 = new PPC(hfov, w, h);
-	ppc3->C = V3(-200.0f, 200.0f, 120.0f);
+	light = new PPC(hfov, w, h);
+	shadow = new PPC(hfov, w, h);
+
+	light->C = V3(30.0f, -30.0f, -100.0f);
+	ppc3->C = V3(-100.0f, 100.0f, 160.0f);
 
 	tmsN = 1;
 	tms = new TM[tmsN];
@@ -62,11 +67,20 @@ Scene::Scene() {
 void Scene::Render(PPC *rppc, FrameBuffer *rfb) {
 	// Renders triangle mesh as wire frame and triangle frame functions
 	rfb->SetBGR(0xFFFFFFFF);
-	rfb->SetZB(0.0f);
-	for (int tmi = 0; tmi < tmsN; tmi++) {
-		tms[tmi].RenderWireFrame(rppc, rfb);
-		tms[tmi].RenderTriangles(rppc, rfb);
+	rfb->SetZB(0);
+	if (mode == 3) {
+		for (int tmi = 0; tmi < tmsN; tmi++) {
+			//tms[tmi].RenderWireFrame(rppc, rfb);
+			tms[tmi].SM3(light, rppc, rfb, ka, kp);
+		}
 	}
+	else {
+		for (int tmi = 0; tmi < tmsN; tmi++) {
+			tms[tmi].RenderWireFrame(rppc, rfb);
+			tms[tmi].RenderTriangles(rppc, rfb);
+		}
+	}
+	
 	
 	rfb->redraw();
 
@@ -82,21 +96,26 @@ void Scene::Render() {
 		V3(1.0f, 0.0f, 0.0f), V3(0.0f, 0.0f, 0.0f));
 	fb3->Render3DPoint(ppc3, ppc->C, V3(1.0f, 0.0f, 0.0f), 7.0f);
 	fb3->Render3DPoint(ppc, ppc->C, V3(1.0f, 0.0f, 0.0f), 7.0f);
+//	fb->Render3DSegment(ppc, ppc3->C, ppc3->C + ppc->GetVD() * 1000.0f,
+//		V3(1.0f, 0.0f, 0.0f), V3(0.0f, 0.0f, 0.0f));
 	fb3->redraw();
 
 }
 
 void Scene::DBG() {
 
-	{
-		TM loadedTM;
-		loadedTM.LoadBin("geometry/teapot1k.bin");
-		loadedTM.SetAsCopy(&(tms[0]));
-		for (int fi = 0; fi < 1000; fi++) {
-			Render();
-			Fl::check();
+	if (1) {
+		{
+			mode = 1;
+			TM loadedTM;
+			loadedTM.LoadBin("geometry/teapot1k.bin");
+
+			while(1) {
+				Render();
+				Fl::check();
+			}
+			return;
 		}
-		return;
 	}
 
 	{
@@ -128,6 +147,7 @@ void Scene::DBG() {
 		for (int fi = 0; fi < 360; fi++) {
 			tms[0].Light(matColor, ka, lv, kp);
 			Render();
+			fb3->Render3DPoint(ppc, center - lv * 50.0f, V3(1.0f, 1.0f, 0.0f), 7.0f);
 			fb3->Render3DSegment(ppc, center - lv *50.0f, center, V3(1.0f, 1.0f, 0.0f),
 				V3(1.0f, 0.0f, 0.0f));
 			Fl::check();
@@ -317,34 +337,49 @@ void Scene::SM2() {
 	{
 		TM loadedTM;
 		loadedTM.LoadBin("geometry/teapot1k.bin");
-		V3 matColor = *loadedTM.cols;
-		V3 lv = ppc->GetVD();
-		V3 center = tms[0].GetCenter();
-		for (int fi = 0; fi < 360; fi++) {
-			tms[0].Light(matColor, ka, ppc);
-			Render();
-			fb3->Render3DSegment(ppc, center - lv * 50.0f, center, V3(1.0f, 1.0f, 0.0f),
-				V3(1.0f, 0.0f, 0.0f));
-			fb3->Render3DPoint(ppc3, ppc->C, V3(1.0f, 1.0f, 0), 7.0f);
-			Fl::check();
-			lv = lv.RotateThisVector(V3(1.0f, 0.0f, 0.0f), 1.0f);
-
+		mode = 2;
+		V3 * colors = new V3[loadedTM.vertsN];
+		for (int i = 0; i < loadedTM.vertsN; i++) {
+			colors[i] = loadedTM.cols[i];
 		}
+		tms[0].SM2(light, ppc, ka, kp);
+		Render();
+		fb3->Render3DPoint(ppc3, light->C, V3(1.0f, 1.0f, 0.0f), 7.0f);
+		fb->Render3DPoint(ppc, light->C, V3(1.0f, 1.0f, 0.0f), 7.0f);
+		Fl::check();
+		while (1) {
+			
+			Render();
+			fb3->Render3DPoint(ppc3, light->C, V3(1.0f, 0.0f, 1.0f), 7.0f);
+			fb->Render3DPoint(ppc, light->C, V3(1.0f, 0.0f, 1.0f), 7.0f);
+			Fl::check();
+			//for (int i = 0; i < loadedTM.vertsN; i++) {
+				//colors[i] = tms[0].cols[i];
+			//}
+		}
+		return;
+
 	}
 }
 
 void Scene::SM3() {
 	{
+		mode = 3;
 		TM loadedTM;
 		loadedTM.LoadBin("geometry/teapot1k.bin");
 		V3 matColor = *loadedTM.cols;
 		V3 lv = ppc->GetVD();
 		V3 center = tms[0].GetCenter();
-		for (int fi = 0; fi < 360; fi++) {
-			tms[0].Light(matColor, ka, lv, kp);
+		Render();
+		fb3->Render3DPoint(ppc3, light->C, V3(1.0f, 1.0f, 0.0f), 7.0f);
+		fb->Render3DPoint(ppc, light->C, V3(1.0f, 1.0f, 0.0f), 7.0f);
+		Fl::check();
+		while (1) {
 			Render();
-			fb3->Render3DSegment(ppc, center - ppc->GetVD() * 50.0f, center, V3(1.0f, 1.0f, 0.0f),
-				V3(1.0f, 0.0f, 0.0f));
+			fb3->Render3DPoint(ppc3, light->C, V3(1.0f, 0.0f, 1.0f), 7.0f);
+			fb->Render3DPoint(ppc, light->C, V3(1.0f, 0.0f, 1.0f), 7.0f);
+			//fb3->Render3DSegment(ppc, center - ppc->GetVD() * 50.0f, center, V3(1.0f, 1.0f, 0.0f),
+				//V3(1.0f, 0.0f, 0.0f));
 			Fl::check();
 			lv = lv.RotateThisVector(V3(1.0f, 0.0f, 0.0f), 1.0f);
 
@@ -355,33 +390,70 @@ void Scene::SM3() {
 
 
 void Scene::NewButton() {
-	cerr << "INFO: pressed New button on GUI" << endl;
+	int u0 = 60;
+	int v0 = 80;
+	int h = 400;
+	int w = 600;
+	fb = new FrameBuffer(u0, v0, w, h);
+	fb->position(u0, v0);
+	fb->label("first person");
+	fb->show();
+	fb->SetBGR(0xFF0000FF);
+	fb->redraw();
+
+	//Moves the 3rd person camera u0 * 2 + width of ramebuffer
+	fb3 = new FrameBuffer(u0, v0, w, h);
+	fb3->position(u0 + fb->w + u0, v0);
+	fb3->label("3rd person");
+	fb3->show();
+	fb3->SetBGR(0xFFFF0000);
+	fb3->redraw();
+
+	// makes two cameras but moves the 3rd person camera somewhere else
+	float hfov = 60.0f;
+	ppc = new PPC(hfov, w, h);
+	ppc3 = new PPC(hfov, w, h);
+	light = new PPC(hfov, w, h);
+	light->C = V3(30.0f, -30.0f, -100.0f);
+	ppc3->C = V3(-100.0f, 100.0f, 160.0f);
+
+	tmsN = 1;
+	tms = new TM[tmsN];
+	TM loadedTM;
+	loadedTM.LoadBin("geometry/teapot1k.bin");
+	tms[0].SetUnshared(&loadedTM);
+	//	tms[0].LoadBin("geometry/teapot1k.bin");
+	//	tms[0].LoadBin("geometry/teapot57k.bin");
+	tms[0].SetCenter(V3(0.0f, 0.0f, -150.0f));
+
+	ppc3->PositionAndOrient(ppc3->C, tms[0].GetCenter(), V3(0.0f, 1.0f, 0.0f));
 }
 
 void Scene::Left() {
 	V3 Cn(ppc->C);
-	Cn = Cn + V3(-5.0f, 0.0f, 0.0f);
+	Cn = Cn.RotateThisPoint(tms[0].GetCenter(), V3(0.0f, -1.0f, 0.0f), 10.0f);
 	V3 L = tms[0].GetCenter();
 	V3 upg(0.0f, 1.0f, 0.0f);
 	ppc->PositionAndOrient(Cn, L, upg);
 }
 void Scene::Up() {
 	V3 Cn(ppc->C);
-	Cn = Cn + V3(0.0f, -5.0f, 0.0f);
+	Cn = Cn.RotateThisPoint(tms[0].GetCenter(), V3(-1.0f, 0.0f, 0.0f), 10.0f);
 	V3 L = tms[0].GetCenter();
 	V3 upg(0.0f, 1.0f, 0.0f);
 	ppc->PositionAndOrient(Cn, L, upg);
 }
 void Scene::Down() {
 	V3 Cn(ppc->C);
-	Cn = Cn + V3(0.0f, 5.0f, 0.0f);
+	Cn = Cn.RotateThisPoint(tms[0].GetCenter(), V3(1.0f, 0.0f, 0.0f), 10.0f);
 	V3 L = tms[0].GetCenter();
 	V3 upg(0.0f, 1.0f, 0.0f);
 	ppc->PositionAndOrient(Cn, L, upg);
 }
 void Scene::Right() {
 	V3 Cn(ppc->C);
-	Cn = Cn + V3(5.0f, 0.0f, 0.0f);
+	Cn = Cn.RotateThisPoint(tms[0].GetCenter(), V3(0.0f, 1.0f, 0.0f), 10.0f);
+	//Cn = Cn + V3(5.0f, 0.0f, 0.0f);
 	V3 L = tms[0].GetCenter();
 	V3 upg(0.0f, 1.0f, 0.0f);
 	ppc->PositionAndOrient(Cn, L, upg);
@@ -389,16 +461,81 @@ void Scene::Right() {
 
 void Scene::Ambient() {
 	ka += .1f;
+	tms[0].SM2(light, ppc, ka, kp);
 }
 
 void Scene::AmbientDown() {
 	ka -= .1f;
+	tms[0].SM2(light, ppc, ka, kp);
 }
 
 void Scene::WhiteUp() {
-	kp += .1f;
+	kp *= 2.0f;
+	cout << kp << endl;
+	tms[0].SM2(light, ppc, ka, kp);
 }
 
 void Scene::WhiteDown() {
-	kp += .1f;
+	kp /= 2.0f;
+	cout << kp << endl;
+	tms[0].SM2(light, ppc, ka, kp);
+}
+
+void Scene::Light_Left() {
+	V3 Cn(light->C);
+	Cn = Cn.RotateThisPoint(tms[0].GetCenter(), V3(0.0f, -1.0f, 0.0f), 10.0f);
+	V3 L = tms[0].GetCenter();
+	V3 upg(0.0f, 1.0f, 0.0f);
+	light->PositionAndOrient(Cn, L, upg);
+	if (mode == 2) {
+		tms[0].SM2(light, ppc, ka, kp);
+	}
+	else if (mode == 3)
+	{
+		tms[0].SM3(light, ppc, fb, ka, kp);
+	}
+	
+}
+void Scene::Light_Up() {
+	V3 Cn(light->C);
+	Cn = Cn.RotateThisPoint(tms[0].GetCenter(), V3(-1.0f, 0.0f, 0.0f), 10.0f);
+	V3 L = tms[0].GetCenter();
+	V3 upg(0.0f, 1.0f, 0.0f);
+	light->PositionAndOrient(Cn, L, upg);
+	if (mode == 2) {
+		tms[0].SM2(light, ppc, ka, kp);
+	}
+	else if (mode == 3)
+	{
+		tms[0].SM3(light, ppc, fb, ka, kp);
+	}
+}
+void Scene::Light_Down() {
+	V3 Cn(light->C);
+	Cn = Cn.RotateThisPoint(tms[0].GetCenter(), V3(1.0f, 0.0f, 0.0f), 10.0f);
+	V3 L = tms[0].GetCenter();
+	V3 upg(0.0f, 1.0f, 0.0f);
+	light->PositionAndOrient(Cn, L, upg);
+	if (mode == 2) {
+		tms[0].SM2(light, ppc, ka, kp);
+	}
+	else if (mode == 3)
+	{
+		tms[0].SM3(light, ppc, fb, ka, kp);
+	}
+}
+void Scene::Light_Right() {
+	V3 Cn(light->C);
+	Cn = Cn.RotateThisPoint(tms[0].GetCenter(), V3(0.0f, 1.0f, 0.0f), 10.0f);
+	//Cn = Cn + V3(5.0f, 0.0f, 0.0f);
+	V3 L = tms[0].GetCenter();
+	V3 upg(0.0f, 1.0f, 0.0f);
+	light->PositionAndOrient(Cn, L, upg);
+	if (mode == 2) {
+		tms[0].SM2(light, ppc, ka, kp);
+	}
+	else if (mode == 3)
+	{
+		tms[0].SM3(light, ppc, fb, ka, kp);
+	}
 }

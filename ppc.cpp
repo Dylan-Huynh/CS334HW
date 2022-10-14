@@ -32,7 +32,6 @@ int PPC::Project(V3 P, V3 &pP) {
 	V3 q = M.Inverted()*(P - C);
 	if (q[2] <= 0.0f)
 		return 0;
-
 	pP[0] = q[0] / q[2];
 	pP[1] = q[1] / q[2];
 	pP[2] = 1.0f / q[2];

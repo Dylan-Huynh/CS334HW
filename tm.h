@@ -30,4 +30,7 @@ public:
 	void Scale(float mag);
 	void RenderTriangles(PPC* ppc, FrameBuffer* fb);
 	void Light(V3 matColor, float ka, PPC* ppc);
+	void SM1(PPC* ppc, FrameBuffer *fb);
+	void SM2(PPC* light, PPC* ppc, float ka, float kp);
+	void SM3(PPC* light, PPC* ppc, FrameBuffer *fb, float ka, float kp);
 };

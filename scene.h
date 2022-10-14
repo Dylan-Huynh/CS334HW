@@ -10,9 +10,10 @@ public:
 
 	GUI *gui;
 	FrameBuffer *fb, *fb3;
-	PPC *ppc, *ppc3;
+	PPC* ppc, * ppc3, *light, *shadow;
 	TM *tms;
 	int tmsN;
+	int mode;
 	Scene();
 	void Render(PPC *renderPPC, FrameBuffer *renderFB);
 	void Render();
@@ -24,6 +25,10 @@ public:
 	void Up();
 	void Down();
 	void Right();
+	void Light_Left();
+	void Light_Up();
+	void Light_Down();
+	void Light_Right();
 	void Ambient();
 	void AmbientDown();
 	void WhiteUp();

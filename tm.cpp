@@ -246,7 +246,7 @@ void TM::Light(V3 matColor, float ka, V3 ld, float kp) {
 		return;
 	}
 	for (int vi = 0; vi < vertsN; vi++) {
-		cols[vi] = verts[vi].Light(matColor, ka, ld, normals[vi], kp);
+		cols[vi] = verts[vi].Light(cols[vi], ka, ld, normals[vi], kp);
 	}
 
 }
@@ -365,18 +365,72 @@ void TM::RenderTriangles(PPC* ppc, FrameBuffer* fb) {
 			continue;
 		if (!ppc->Project(v2, pv2))
 			continue;
+		
 		V3 col0 = cols[tris[3 * tri + 0]];
 		V3 col1 = cols[tris[3 * tri + 1]];
 		V3 col2 = cols[tris[3 * tri + 2]];
+
+
+
 		fb->Draw3DTriangle(ppc, V3(pv0[0], pv1[0], pv2[0]),
-			V3(pv0[1], pv1[1], pv2[1]), r, col0, col1, col2);
+			V3(pv0[1], pv1[1], pv2[1]), V3(pv0[2], pv1[2], pv2[2]), col0, col1, col2);
 	}
 }
+
+
 
 void TM::Light(V3 matColor, float ka, PPC* ppc) {
 	//New light function that is incomplete
 	for (int vi = 0; vi < vertsN; vi++) {
 		V3 center = GetCenter();
-		cols[vi] = (verts[vi] - center).Light(matColor, ka, ppc->GetVD());
+		cols[vi] = (verts[vi] - center).Light(cols[vi], ka, ppc->GetVD(), normals[vi]);
 	}
+}
+
+void TM::SM2(PPC* light, PPC* ppc, float ka, float kp) {
+	
+
+	for (int vi = 0; vi < vertsN; vi++) {
+		V3 center = GetCenter();
+		float diffuse = ((light->GetVD() - verts[vi]).UnitVector() * -1) * normals[vi].UnitVector();
+		diffuse = (diffuse < 0.0f) ? 0.0f : diffuse;
+		V3 reflect = (light->GetVD()-verts[vi]).UnitVector() - normals[vi].UnitVector() * (2 * (light->GetVD() * normals[vi].UnitVector()));
+		float specular = pow((ppc->GetVD()).UnitVector() * reflect.UnitVector(), kp);
+		cols[vi] = cols[vi] * (ka + (1.0f - ka) * diffuse + specular);
+	}
+}
+
+void TM::SM3(PPC* light, PPC* ppc, FrameBuffer *fb, float ka, float kp) {
+
+
+	for (int tri = 0; tri < trisN; tri++) {
+		V3 v0 = verts[tris[3 * tri + 0]];
+		V3 v1 = verts[tris[3 * tri + 1]];
+		V3 v2 = verts[tris[3 * tri + 2]];
+		V3 r;
+		r[0] = (v0[2] - ppc->C[2]);
+		r[1] = (v1[2] - ppc->C[2]);
+		r[2] = (v2[2] - ppc->C[2]);
+		V3 pv0, pv1, pv2;
+		if (!ppc->Project(v0, pv0))
+			continue;
+		if (!ppc->Project(v1, pv1))
+			continue;
+		if (!ppc->Project(v2, pv2))
+			continue;
+
+		V3 col0 = cols[tris[3 * tri + 0]];
+		V3 col1 = cols[tris[3 * tri + 1]];
+		V3 col2 = cols[tris[3 * tri + 2]];
+
+		V3 normal0 = normals[tris[3 * tri + 0]];
+		V3 normal1 = normals[tris[3 * tri + 1]];
+		V3 normal2 = normals[tris[3 * tri + 2]];
+
+
+		fb->DrawPhoungTriangle(ppc, V3(pv0[0], pv1[0], pv2[0]),
+			V3(pv0[1], pv1[1], pv2[1]), V3(pv0[2], pv1[2], pv2[2]), col0, col1, col2,
+			normal0, normal1, normal2, ka, kp, light);
+	}
+
 }

@@ -51,6 +51,34 @@ void GUI::cb_Right(Fl_Repeat_Button* t, void* v) {
     ((GUI*)(t->parent()->user_data()))->cb_Right_i(t, v);
 }
 
+void GUI::cb_Light_Left_i(Fl_Repeat_Button*, void*) {
+    Light_Left_cb();
+}
+void GUI::cb_Light_Left(Fl_Repeat_Button* o, void* v) {
+    ((GUI*)(o->parent()->user_data()))->cb_Light_Left_i(o, v);
+}
+
+void GUI::cb_Light_Up_i(Fl_Repeat_Button*, void*) {
+    Light_Up_cb();
+}
+void GUI::cb_Light_Up(Fl_Repeat_Button* r, void* v) {
+    ((GUI*)(r->parent()->user_data()))->cb_Light_Up_i(r, v);
+}
+
+void GUI::cb_Light_Down_i(Fl_Repeat_Button*, void*) {
+    Light_Down_cb();
+}
+void GUI::cb_Light_Down(Fl_Repeat_Button* s, void* v) {
+    ((GUI*)(s->parent()->user_data()))->cb_Light_Down_i(s, v);
+}
+
+void GUI::cb_Light_Right_i(Fl_Repeat_Button*, void*) {
+    Light_Right_cb();
+}
+void GUI::cb_Light_Right(Fl_Repeat_Button* t, void* v) {
+    ((GUI*)(t->parent()->user_data()))->cb_Light_Right_i(t, v);
+}
+
 void GUI::cb_NewButton_i(Fl_Return_Button*, void*) {
     NewButton_cb();
 }
@@ -92,7 +120,7 @@ void GUI::cb_WhiteDown(Fl_Button* o, void* v) {
 
 GUI::GUI() {
     // For a ton of these I just made new buttons and tested the dimensions to make sure they made sense
-    { uiw = new Fl_Double_Window(399, 397, "GUI");
+    { uiw = new Fl_Double_Window(800, 397, "GUI");
     uiw->user_data((void*)(this));
     { Fl_Button* o = new Fl_Button(15, 15, 95, 40, "DBG");
     o->selection_color(FL_DARK_RED);
@@ -120,6 +148,18 @@ GUI::GUI() {
     }
     { Fl_Repeat_Button* t = new Fl_Repeat_Button(200, 250, 100, 50, "Right");
     t->callback((Fl_Callback*)cb_Right);
+    }
+    { Fl_Repeat_Button* o = new Fl_Repeat_Button(600, 250, 100, 50, "Light_Left");
+    o->callback((Fl_Callback*)cb_Light_Left);
+    }
+    { Fl_Repeat_Button* r = new Fl_Repeat_Button(550, 200, 100, 50, "Light_Up");
+    r->callback((Fl_Callback*)cb_Light_Up);
+    }
+    { Fl_Repeat_Button* s = new Fl_Repeat_Button(550, 300, 100, 50, "Light_Down");
+    s->callback((Fl_Callback*)cb_Light_Down);
+    }
+    { Fl_Repeat_Button* t = new Fl_Repeat_Button(500, 250, 100, 50, "Light_Right");
+    t->callback((Fl_Callback*)cb_Light_Right);
     }
     { Fl_Button* p = new Fl_Button(200, 000, 100, 50, "AmbientUp");
     p->callback((Fl_Callback*)cb_Ambient);
@@ -175,6 +215,22 @@ void GUI::Down_cb() {
 
 void GUI::Right_cb() {
     scene->Right();
+}
+
+void GUI::Light_Left_cb() {
+    scene->Light_Left();
+}
+
+void GUI::Light_Up_cb() {
+    scene->Light_Up();
+}
+
+void GUI::Light_Down_cb() {
+    scene->Light_Down();
+}
+
+void GUI::Light_Right_cb() {
+    scene->Light_Right();
 }
 
 void GUI::Ambient_cb() {

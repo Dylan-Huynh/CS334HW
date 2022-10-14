@@ -181,12 +181,22 @@ V3 V3::Light(V3 matColor, float ka, V3 ld, V3 norm, float kp) {
 	return ret;
 }
 
-V3 V3::Light(V3 matColor, float ka, V3 ld) {
-	//this didn't work so well, but i have a better idea on what I'd do
+V3 V3::Light(V3 matColor, float ka, V3 ld, V3 norm) {
+
 	V3 ret;
-	float kd = (ld * -1.0f) * *this;
+	float kd = (ld * -1.0f) * norm;
 	kd = (kd < 0.0f) ? 0.0f : kd;
-	//cout << kd << endl;
 	ret = matColor * (ka + (1.0f - ka) * kd);
+	return ret;
+}
+
+V3 V3::Light(V3 matColor, float ka, float kp, V3 ld, V3 ed, V3 norm) {
+
+	V3 ret;
+	float kd = (ld * -1.0f) * norm;
+	kd = (kd < 0.0f) ? 0.0f : kd;
+	V3 reflect = (ld).UnitVector() - norm.UnitVector() * (2 * (ld * norm.UnitVector()));
+	float specular = pow((ed).UnitVector() * reflect.UnitVector(), kp);
+	ret = matColor * (ka + (1.0f - ka) * kd + specular);
 	return ret;
 }

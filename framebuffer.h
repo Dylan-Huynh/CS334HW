@@ -39,5 +39,7 @@ public:
 	float biggest(int x, int y, int z);
 	
 	void FrameBuffer::SetZB(PPC* ppc, int pixX, int pixY, V3 px, V3 py, V3 pz);
-	void Draw3DTriangle(PPC *ppc, V3 x, V3 y, V3 r, V3 col0, V3 col1, V3 col2); //3-d to 2-d triangle rasterization
+	void Draw3DTriangle(PPC *ppc, V3 x, V3 y, V3 z, V3 col0, V3 col1, V3 col2); //3-d to 2-d triangle rasterization
+	void DrawPhoungTriangle(PPC* ppc, V3 x, V3 y, V3 z, V3 col0, V3 col1, V3 col2, 
+		V3 normal0, V3 normal1, V3 normal2, float ka, float kp, PPC *light); //3-d to 2-d triangle rasterization
 };
